@@ -61,6 +61,20 @@ go mod tidy
 docker-compose up -d
 ```
 
+## Project Structure
+
+lp_tracker/
+├── container/           # Dependency injection
+├── database/            # MongoDB connection and management
+├── discord/             # Discord bot commands and handlers
+├── models/              # Data models (models/repositories design pattern)
+├── repositories/        # Repositories
+├── services/            # Services for Riot API
+├── docker-compose.yml   # Docker compose to run mongodb, poller and command_listener services
+├── Dockerfile           # Docker Images for poller and command_listener
+├── commands_listener.go # Command_listener entry point
+├── poller.go            # poller entry point
+
 ## Basics go commands
 
 ### Build, Run commands
