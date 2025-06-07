@@ -26,10 +26,10 @@ Show all tracked players
 
 ## Requirements
 
-Go 1.19+
-MongoDB (local or cloud)
-Discord Application/Bot
-Riot Games API Key
+- Go 1.19+
+- MongoDB (local or cloud)
+- Discord Application/Bot
+- Riot Games API Key
 
 ## Quickstart
 
