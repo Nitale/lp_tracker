@@ -63,17 +63,17 @@ docker-compose up -d
 
 ## Project Structure
 
-lp_tracker/
-├── container/           # Dependency injection
-├── database/            # MongoDB connection and management
-├── discord/             # Discord bot commands and handlers
-├── models/              # Data models (models/repositories design pattern)
-├── repositories/        # Repositories
-├── services/            # Services for Riot API
-├── docker-compose.yml   # Docker compose to run mongodb, poller and command_listener services
-├── Dockerfile           # Docker Images for poller and command_listener
-├── commands_listener.go # Command_listener entry point
-├── poller.go            # poller entry point
+<span style="color:lightblue"><strong>lp_tracker/</strong></span>\
+<span style="color:lightblue"><strong>├── container/</strong></span>           &nbsp;&nbsp;<span style="color:green"># Dependency injection</span></span>\
+<span style="color:lightblue"><strong>├── database/</strong></span>            &nbsp;&nbsp;<span style="color:green"># MongoDB connection and management</span>\
+<span style="color:lightblue"><strong>├── discord/</strong></span>             &nbsp;&nbsp;<span style="color:green"># Discord bot commands and handlers</span>\
+<span style="color:lightblue"><strong>├── models/</strong></span>              &nbsp;&nbsp;<span style="color:green"># Data models (models/repositories design pattern)</span>\
+<span style="color:lightblue"><strong>├── repositories/</strong></span>        &nbsp;&nbsp;<span style="color:green"># Repositories</span>\
+<span style="color:lightblue"><strong>├── services/</strong></span>            &nbsp;&nbsp;<span style="color:green"># Services for Riot API</span>\
+<span style="color:lightblue"><strong>├── docker-compose.yml</strong></span>   &nbsp;&nbsp;<span style="color:green"># Docker compose to run mongodb, poller and command_listener services</span>\
+<span style="color:lightblue"><strong>├── Dockerfile</strong></span>          &nbsp;&nbsp;<span style="color:green"># Docker Images for poller and command_listener</span>\
+<span style="color:lightblue"><strong>├── commands_listener.go</strong></span> &nbsp;&nbsp;<span style="color:green"># Command_listener entry point</span>\
+<span style="color:lightblue"><strong>├── poller.go</strong></span>            &nbsp;&nbsp;<span style="color:green"># poller entry point
 
 ## Basics go commands
 
