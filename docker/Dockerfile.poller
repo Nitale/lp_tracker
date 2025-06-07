@@ -1,0 +1,28 @@
+# Use official Go image
+FROM golang:1.21-alpine3.19 AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code and go files
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=0 go build -o commands_listener .commands_listener.go
+
+# Use Google's distroless as minimal base image
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+
+# Copy the binary from builder
+COPY --from=builder /app/commands_listener .
+
+# Run the binary
+CMD ["./commands_listener"]
