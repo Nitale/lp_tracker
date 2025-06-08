@@ -28,7 +28,7 @@ func (ps *PlayerService) AddPlayer(ctx context.Context, gameName, tagLine, serve
 	if err != nil {
 		return nil, fmt.Errorf("failed to check existing player: %w", err)
 	}
-	
+
 	if existingPlayer != nil {
 		return nil, fmt.Errorf("player %s#%s (%s) is already being tracked", gameName, tagLine, server)
 	}

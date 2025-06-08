@@ -6,9 +6,9 @@ import (
 	"log"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type Manager struct {
@@ -85,7 +85,7 @@ func (m *Manager) Ping(ctx context.Context) error {
 func (m *Manager) createIndexes(ctx context.Context) error {
 	// Create indexes for players collection
 	playersCollection := m.database.Collection("players")
-	
+
 	playerIndexes := []mongo.IndexModel{
 		{
 			Keys: bson.D{

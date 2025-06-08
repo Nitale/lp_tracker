@@ -4,44 +4,45 @@ package models
 import (
 	"fmt"
 	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // MatchPlayerInfo represents the information of a match for a specific player
 type MatchPlayerInfo struct {
 	ID primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	
+
 	// Links to other collections
-	PlayerPUUID string `bson:"player_puuid" json:"player_puuid"`       // Reference to the player
-	MatchID     string `bson:"match_id" json:"match_id"`               // Riot Match ID
-	
+	PlayerPUUID string `bson:"player_puuid" json:"player_puuid"` // Reference to the player
+	MatchID     string `bson:"match_id" json:"match_id"`         // Riot Match ID
+
 	// Basic player information
 	Pseudo string `bson:"pseudo" json:"pseudo"`
-	
+
 	// Match result
 	Victory bool `bson:"victory" json:"victory"`
-	
+
 	// Rank information (at the time of the match)
-	Rank         string `bson:"rank" json:"rank"`                     // ex: "GOLD III"
+	Rank         string `bson:"rank" json:"rank"` // ex: "GOLD III"
 	LeaguePoints int    `bson:"league_points" json:"league_points"`
-	QueueType    string `bson:"queue_type" json:"queue_type"`         // "RANKED_SOLO_5x5" or "RANKED_FLEX_SR"
-	
+	QueueType    string `bson:"queue_type" json:"queue_type"` // "RANKED_SOLO_5x5" or "RANKED_FLEX_SR"
+
 	// Player performance
-	Kills     int    `bson:"kills" json:"kills"`
-	Deaths    int    `bson:"deaths" json:"deaths"`
-	Assists   int    `bson:"assists" json:"assists"`
-	Champion  string `bson:"champion" json:"champion"`
-	
+	Kills    int    `bson:"kills" json:"kills"`
+	Deaths   int    `bson:"deaths" json:"deaths"`
+	Assists  int    `bson:"assists" json:"assists"`
+	Champion string `bson:"champion" json:"champion"`
+
 	// Advanced statistics
 	DamageToChamps int `bson:"damage_to_champs" json:"damage_to_champs"`
-	CreepScore     int `bson:"creep_score" json:"creep_score"`           // CS total
+	CreepScore     int `bson:"creep_score" json:"creep_score"` // CS total
 	GoldEarned     int `bson:"gold_earned" json:"gold_earned"`
 	VisionScore    int `bson:"vision_score" json:"vision_score"`
-	
+
 	// Metadata
-	CreatedAt     time.Time `bson:"created_at" json:"created_at"`
-	ProcessedAt   time.Time `bson:"processed_at" json:"processed_at"`     // When this match was processed by the bot
-	NotifiedAt    *time.Time `bson:"notified_at,omitempty" json:"notified_at,omitempty"` // When the Discord message was sent
+	CreatedAt   time.Time  `bson:"created_at" json:"created_at"`
+	ProcessedAt time.Time  `bson:"processed_at" json:"processed_at"`                   // When this match was processed by the bot
+	NotifiedAt  *time.Time `bson:"notified_at,omitempty" json:"notified_at,omitempty"` // When the Discord message was sent
 }
 
 // Useful methods for MatchPlayerInfo

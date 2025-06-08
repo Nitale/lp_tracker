@@ -7,7 +7,11 @@ import (
 	"strings"
 
 	"lp_tracker/container"
+	"lp_tracker/models"
 	"lp_tracker/services"
+
+	"sync"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -15,12 +19,24 @@ import (
 type CommandHandler struct {
 	container     *container.Container
 	playerService *services.PlayerService
+	workerPool    chan struct{}
+	stats         *CommandStats
+}
+
+type CommandStats struct {
+	mu             sync.Mutex
+	totalCommands  int64
+	activeCommands int64
+	averageTime    time.Duration
 }
 
 func NewCommandHandler(c *container.Container) *CommandHandler {
 	return &CommandHandler{
 		container:     c,
 		playerService: c.GetPlayerService(),
+		// worker pool limit to 10 to avoid overwhelming riot api
+		workerPool: make(chan struct{}, 2),
+		stats:      &CommandStats{},
 	}
 }
 
@@ -83,15 +99,28 @@ func (h *CommandHandler) RegisterCommands(s *discordgo.Session) error {
 }
 
 func (h *CommandHandler) HandleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// i.ApplicationCommandData().Name is an implicit routine (Discordgo)
 	switch i.ApplicationCommandData().Name {
 	case "add_player":
-		h.handleAddPlayer(s, i)
+		go h.handleAddPlayerAsync(s, i)
 	case "list_players":
-		h.handleListPlayers(s, i)
+		go h.handleListPlayersAsync(s, i)
 	}
 }
 
-func (h *CommandHandler) handleAddPlayer(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (h *CommandHandler) handleAddPlayerAsync(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	//Add a worker to the pool (similar as a ticket in a queue) - We use struct{}{} because we don't need to store any data (optimization)
+	h.workerPool <- struct{}{}
+	//Remove from the pool when the function returns
+	defer func() { <-h.workerPool }()
+
+	// Statistics
+	start := time.Now()
+	h.updateStats(1, 0)
+	defer func() {
+		h.updateStats(-1, time.Since(start))
+	}()
+
 	// Defer response to avoid timeout
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -101,65 +130,51 @@ func (h *CommandHandler) handleAddPlayer(s *discordgo.Session, i *discordgo.Inte
 		return
 	}
 
+	log.Printf("🔄 Starting processAddPlayer for user interaction")
+	h.processAddPlayer(s, i)
+}
+
+func (h *CommandHandler) processAddPlayer(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	options := i.ApplicationCommandData().Options
 	pseudo := options[0].StringValue()
 	tagline := options[1].StringValue()
 	server := strings.ToLower(options[2].StringValue())
 
-	// Validate inputs
-	if len(pseudo) == 0 || len(tagline) == 0 {
-		h.sendFollowUp(s, i, "❌ Player name and tagline cannot be empty!")
-		return
+	// context with Timeout to avoid hanging API requests
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	type result struct {
+		player *models.Player
+		err    error
 	}
+	resultChan := make(chan result, 1)
 
-	ctx := context.Background()
+	// Add Player in a goroutine
+	go func() {
+		player, err := h.playerService.AddPlayer(ctx, pseudo, tagline, server)
+		resultChan <- result{player: player, err: err}
+	}()
 
-	// Add player using service
-	player, err := h.playerService.AddPlayer(ctx, pseudo, tagline, server)
-	if err != nil {
-		var response string
-		if strings.Contains(err.Error(), "already being tracked") {
-			// Get existing player info for better response
-			existingPlayer, getErr := h.playerService.GetPlayerByRiotID(ctx, pseudo, tagline, server)
-			if getErr == nil {
-				response = fmt.Sprintf("❌ Player **%s#%s** (%s) is already being tracked!\n🏆 Current: %s %s %d LP", 
-					pseudo, tagline, strings.ToUpper(server),
-					existingPlayer.Tier, existingPlayer.Rank, existingPlayer.LeaguePoints)
-			} else {
-				response = fmt.Sprintf("❌ Player **%s#%s** (%s) is already being tracked!", pseudo, tagline, strings.ToUpper(server))
-			}
-		} else if strings.Contains(err.Error(), "not found") {
-			response = fmt.Sprintf("❌ Player **%s#%s** not found on server **%s**\n\n💡 **Tips:**\n• Check the spelling of the name and tagline\n• Make sure the server is correct\n• The player might not exist or have never played ranked", 
-				pseudo, tagline, strings.ToUpper(server))
-		} else {
-			response = fmt.Sprintf("❌ Failed to add player **%s#%s**\n\n**Error:** %v", pseudo, tagline, err)
+	//Wait for Timeout or result
+	select {
+	case res := <-resultChan:
+		if res.err != nil {
+			h.handleAddPlayerErrors(s, i, res.err, pseudo, tagline, server)
+			return
 		}
-		h.sendFollowUp(s, i, response)
-		return
+		log.Printf("✅ AddPlayer success, sending success message")
+		h.sendAppPlayerSuccess(s, i, res.player)
+	case <-ctx.Done():
+		h.sendFollowUp(s, i, "❌ Request timed out. Please try again later.")
+		log.Printf("Add player timed out: %s#%s on server %s", pseudo, tagline, server)
 	}
-
-	// Success response with better formatting
-	var rankInfo string
-	if player.Tier == "UNRANKED" {
-		rankInfo = "🆕 **Unranked**"
-	} else {
-		rankInfo = fmt.Sprintf("🏆 **%s %s** • %d LP", player.Tier, player.Rank, player.LeaguePoints)
-	}
-
-	response := fmt.Sprintf("✅ Successfully added **%s#%s** (%s)\n📊 **Level:** %d\n%s\n📈 **W/L:** %d/%d", 
-		player.GameName, 
-		player.TagLine, 
-		strings.ToUpper(player.Server),
-		player.SummonerLevel,
-		rankInfo,
-		player.Wins,
-		player.Losses,
-	)
-
-	h.sendFollowUp(s, i, response)
 }
 
-func (h *CommandHandler) handleListPlayers(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func (h *CommandHandler) handleListPlayersAsync(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	h.workerPool <- struct{}{}
+	defer func() { <-h.workerPool }()
+
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
@@ -168,24 +183,75 @@ func (h *CommandHandler) handleListPlayers(s *discordgo.Session, i *discordgo.In
 		return
 	}
 
-	ctx := context.Background()
-	players, err := h.playerService.GetAllPlayers(ctx)
-	if err != nil {
-		h.sendFollowUp(s, i, "❌ Failed to fetch players from database")
-		return
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Parallelize the request to the database
+	playersChan := make(chan []*models.Player, 1)
+	errorChan := make(chan error, 1)
+
+	go func() {
+		players, err := h.playerService.GetAllPlayers(ctx)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+		playersChan <- players
+	}()
+
+	select {
+	case players := <-playersChan:
+		h.sendPlayersList(s, i, players)
+	case err := <-errorChan:
+		h.sendFollowUp(s, i, fmt.Sprintf("❌ Failed to fetch players from database: %v", err))
+		log.Printf("Error fetching players from database: %v", err)
+	case <-ctx.Done():
+		h.sendFollowUp(s, i, "❌ Request timed out")
+	}
+}
+
+func (h *CommandHandler) handleAddPlayerErrors(s *discordgo.Session, i *discordgo.InteractionCreate, err error, pseudo string, tagline string, server string) {
+	var response string
+	if strings.Contains(err.Error(), "already being tracked") {
+		response = fmt.Sprintf("❌ Player **%s#%s** (%s) is already being tracked!", pseudo, tagline, strings.ToUpper(server))
+	} else if strings.Contains(err.Error(), "not found") {
+		response = fmt.Sprintf("❌ Player **%s#%s** not found on server **%s**\n\n💡 **Tips:**\n• Check the spelling of the name and tagline\n• Make sure the server is correct\n• The player might not exist or have never played ranked",
+			pseudo, tagline, strings.ToUpper(server))
+	} else {
+		response = fmt.Sprintf("❌ Failed to add player **%s#%s**\n\n**Error:** %v", pseudo, tagline, err)
+	}
+	h.sendFollowUp(s, i, response)
+}
+
+func (h *CommandHandler) sendAppPlayerSuccess(s *discordgo.Session, i *discordgo.InteractionCreate, player *models.Player) {
+	var rankInfo string
+	if player.Tier == "UNRANKED" {
+		rankInfo = "🆕 **Unranked**"
+	} else {
+		rankInfo = fmt.Sprintf("🏆 **%s %s** • %d LP", player.Tier, player.Rank, player.LeaguePoints)
 	}
 
+	response := fmt.Sprintf("✅ Successfully added **%s#%s** (%s)\n📊 **Level:** %d\n%s\n📈 **W/L:** %d/%d",
+		player.GameName,
+		player.TagLine,
+		strings.ToUpper(player.Server),
+		player.SummonerLevel,
+		rankInfo,
+	)
+	h.sendFollowUp(s, i, response)
+}
+
+func (h *CommandHandler) sendPlayersList(s *discordgo.Session, i *discordgo.InteractionCreate, players []*models.Player) {
 	if len(players) == 0 {
-		h.sendFollowUp(s, i, "📭 No players are currently being tracked.\nUse `/add_player` to start tracking a player!")
+		h.sendFollowUp(s, i, "📭 No players tracked yet!\nUse `/add_player` to start tracking.")
 		return
 	}
 
-	// Build response
 	var response strings.Builder
 	response.WriteString(fmt.Sprintf("📋 **Tracked Players (%d)**\n\n", len(players)))
 
-	for i, player := range players {
-		if i >= 20 { // Limit to prevent message being too long
+	for idx, player := range players {
+		if idx >= 20 {
 			response.WriteString(fmt.Sprintf("... and %d more players\n", len(players)-20))
 			break
 		}
@@ -197,18 +263,32 @@ func (h *CommandHandler) handleListPlayers(s *discordgo.Session, i *discordgo.In
 			rankInfo = fmt.Sprintf("🏆 %s %s %d LP", player.Tier, player.Rank, player.LeaguePoints)
 		}
 
-		response.WriteString(fmt.Sprintf("👤 **%s#%s** (%s)\n", 
-			player.GameName, 
-			player.TagLine, 
-			strings.ToUpper(player.Server),
-		))
-		response.WriteString(fmt.Sprintf("   📊 Level %d • %s\n\n", 
-			player.SummonerLevel,
-			rankInfo,
-		))
+		response.WriteString(fmt.Sprintf("👤 **%s#%s** (%s)\n   📊 Level %d • %s\n\n",
+			player.GameName, player.TagLine, strings.ToUpper(player.Server),
+			player.SummonerLevel, rankInfo))
 	}
 
 	h.sendFollowUp(s, i, response.String())
+}
+
+func (h *CommandHandler) updateStats(delta int64, duration time.Duration) {
+	h.stats.mu.Lock()
+	defer h.stats.mu.Unlock()
+
+	h.stats.totalCommands++
+	if delta > 0 {
+		h.stats.activeCommands += delta
+	}
+
+	if duration > 0 {
+		h.stats.averageTime = (h.stats.averageTime + duration) / 2
+	}
+}
+
+func (h *CommandHandler) GetStats() (total int64, active int64, avgTime time.Duration) {
+	h.stats.mu.Lock()
+	defer h.stats.mu.Unlock()
+	return h.stats.totalCommands, h.stats.activeCommands, h.stats.averageTime
 }
 
 func (h *CommandHandler) sendFollowUp(s *discordgo.Session, i *discordgo.InteractionCreate, content string) {

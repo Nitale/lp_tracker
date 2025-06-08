@@ -61,9 +61,21 @@ go mod tidy
 docker-compose up -d
 ```
 
+### Run poller/commands_listener locally (useful to debug)
+
+```bash
+go run cmd/commands_listener/main.go
+```
+```bash
+go run cmd/poller/main.go
+```
+
 ## Project Structure
 
 <span style="color:lightblue"><strong>lp_tracker/</strong></span>\
+<span style="color:lightblue"><strong>├── cmd/</strong></span>\
+<span style="color:lightblue"><strong>│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── commands_listener/</strong></span>           &nbsp;&nbsp;<span style="color:green"># command_listener entry point</span></span>\
+<span style="color:lightblue"><strong>│&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── poller/</strong></span>           &nbsp;&nbsp;<span style="color:green"># poller entry point</span></span>\
 <span style="color:lightblue"><strong>├── container/</strong></span>           &nbsp;&nbsp;<span style="color:green"># Dependency injection</span></span>\
 <span style="color:lightblue"><strong>├── database/</strong></span>            &nbsp;&nbsp;<span style="color:green"># MongoDB connection and management</span>\
 <span style="color:lightblue"><strong>├── discord/</strong></span>             &nbsp;&nbsp;<span style="color:green"># Discord bot commands and handlers</span>\
@@ -72,8 +84,6 @@ docker-compose up -d
 <span style="color:lightblue"><strong>├── services/</strong></span>            &nbsp;&nbsp;<span style="color:green"># Services for Riot API</span>\
 <span style="color:lightblue"><strong>├── docker-compose.yml</strong></span>   &nbsp;&nbsp;<span style="color:green"># Docker compose to run mongodb, poller and command_listener services</span>\
 <span style="color:lightblue"><strong>├── Dockerfile</strong></span>          &nbsp;&nbsp;<span style="color:green"># Docker Images for poller and command_listener</span>\
-<span style="color:lightblue"><strong>├── commands_listener.go</strong></span> &nbsp;&nbsp;<span style="color:green"># Command_listener entry point</span>\
-<span style="color:lightblue"><strong>├── poller.go</strong></span>            &nbsp;&nbsp;<span style="color:green"># poller entry point
 
 ## Basics go commands
 

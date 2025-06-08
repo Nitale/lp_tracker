@@ -17,21 +17,21 @@ services:
     networks:
       - lp_tracker_network
 
-  discord-bot:
-    build: docker/Dockerfile.commands_listener
-    container_name: discord-bot
-    restart: unless-stopped
-    environment:
-      - DISCORD_TOKEN=${DISCORD_TOKEN}
-      - MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
-      - MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
-      - MONGO_DATABASE=${MONGO_DATABASE}
-      - RIOT_API_KEY=${RIOT_API_KEY}
-      - MONGO_URI=${MONGO_URI}
-    depends_on:
-      - mongodb
-    networks:
-      - lp_tracker_network
+  # discord-bot:
+  #   build: docker/Dockerfile.commands_listener
+  #   container_name: discord-bot
+  #   restart: unless-stopped
+  #   environment:
+  #     - DISCORD_TOKEN=${DISCORD_TOKEN}
+  #     - MONGO_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+  #     - MONGO_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+  #     - MONGO_DATABASE=${MONGO_DATABASE}
+  #     - RIOT_API_KEY=${RIOT_API_KEY}
+  #     - MONGO_URI=${MONGO_URI}
+  #   depends_on:
+  #     - mongodb
+  #   networks:
+  #     - lp_tracker_network
 
 volumes:
   mongodb_data:

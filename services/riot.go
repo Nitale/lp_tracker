@@ -159,13 +159,13 @@ func (r *RiotService) UpdatePlayerRank(ctx context.Context, player *models.Playe
 
 func (r *RiotService) getAccountByRiotID(ctx context.Context, gameName, tagLine string) (*AccountDTO, error) {
 	url := fmt.Sprintf("https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/%s/%s", gameName, tagLine)
-	
+
 	var account AccountDTO
 	err := r.makeAPIRequest(ctx, url, &account)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &account, nil
 }
 
@@ -174,15 +174,15 @@ func (r *RiotService) getSummonerByPUUID(ctx context.Context, puuid, server stri
 	if err != nil {
 		return nil, err
 	}
-	
+
 	url := fmt.Sprintf("%s/lol/summoner/v4/summoners/by-puuid/%s", baseURL, puuid)
-	
+
 	var summoner SummonerDTO
 	err = r.makeAPIRequest(ctx, url, &summoner)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &summoner, nil
 }
 
@@ -191,15 +191,15 @@ func (r *RiotService) getLeagueEntriesBySummonerID(ctx context.Context, summoner
 	if err != nil {
 		return nil, err
 	}
-	
+
 	url := fmt.Sprintf("%s/lol/league/v4/entries/by-summoner/%s", baseURL, summonerID)
-	
+
 	var entries []LeagueEntryDTO
 	err = r.makeAPIRequest(ctx, url, &entries)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return entries, nil
 }
 
@@ -208,32 +208,32 @@ func (r *RiotService) makeAPIRequest(ctx context.Context, url string, target int
 	if err != nil {
 		return err
 	}
-	
+
 	req.Header.Set("X-Riot-Token", r.apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
-	
+
 	return json.Unmarshal(body, target)
 }
 
 func (r *RiotService) getAPIBaseURL(server string) (string, error) {
 	server = strings.ToLower(server)
-	
+
 	switch server {
 	case "euw1", "euw":
 		return "https://euw1.api.riotgames.com", nil

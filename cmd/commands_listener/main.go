@@ -2,18 +2,23 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"lp_tracker/container"
 	"lp_tracker/database"
 	"lp_tracker/discord"
-	"lp_tracker/container"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
+)
+
+const (
+	STATS_INTERVAL = 2 * time.Minute
 )
 
 func main() {
@@ -25,11 +30,12 @@ func main() {
 
 	// Validate required environment variables
 	requiredEnvs := map[string]string{
-		"DISCORD_TOKEN": os.Getenv("DISCORD_TOKEN"),
-		"RIOT_API_KEY":  os.Getenv("RIOT_API_KEY"),
-		"MONGO_URI": os.Getenv("MONGO_URI"),
+		"DISCORD_TOKEN":  os.Getenv("DISCORD_TOKEN"),
+		"RIOT_API_KEY":   os.Getenv("RIOT_API_KEY"),
+		"MONGO_URI":      os.Getenv("MONGO_URI"),
 		"MONGO_DATABASE": os.Getenv("MONGO_DATABASE"),
 	}
+	fmt.Println(requiredEnvs)
 
 	for key, value := range requiredEnvs {
 		if value == "" {
@@ -58,7 +64,7 @@ func main() {
 	// Test database connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	err = dbManager.Ping(ctx)
 	if err != nil {
 		log.Fatal("Database health check failed:", err)
@@ -79,12 +85,23 @@ func main() {
 
 	// Add handlers
 	dg.AddHandler(commandHandler.HandleInteraction)
-	
+
+	// Optionnal: Logging of stats every 5 minutes
+	go func() {
+		ticker := time.NewTicker(STATS_INTERVAL)
+		defer ticker.Stop()
+		for range ticker.C {
+			total, active, avgTime := commandHandler.GetStats()
+			log.Printf("📊 Bot Stats - Total: %d, Active: %d, Avg Time: %v",
+				total, active, avgTime)
+		}
+	}()
+
 	// Register commands AFTER connection is established
 	dg.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 		log.Printf("Bot is ready and serving %d guilds", len(s.State.Guilds))
-		
+
 		// Now register slash commands (bot is connected)
 		log.Println("Registering slash commands...")
 		err := commandHandler.RegisterCommands(s)
@@ -114,23 +131,16 @@ func main() {
 	<-stop
 
 	log.Println("🛑 Shutting down Discord bot...")
-	
+
 	// Cleanup
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	// Close database connection
 	err = dbManager.Close(ctx)
 	if err != nil {
 		log.Printf("Error closing database connection: %v", err)
 	}
-	
-	log.Println("✅ Shutdown complete")
-}
 
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
+	log.Println("✅ Shutdown complete")
 }

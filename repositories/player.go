@@ -19,7 +19,7 @@ type PlayerRepository struct {
 
 func NewPlayerRepository(db *mongo.Database) *PlayerRepository {
 	collection := db.Collection("players")
-	
+
 	// Create indexes for better performance
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{
@@ -29,10 +29,10 @@ func NewPlayerRepository(db *mongo.Database) *PlayerRepository {
 		},
 		Options: options.Index().SetUnique(true),
 	}
-	
+
 	// Create index (ignore error if already exists)
 	collection.Indexes().CreateOne(context.Background(), indexModel)
-	
+
 	return &PlayerRepository{
 		collection: collection,
 	}
@@ -42,30 +42,30 @@ func NewPlayerRepository(db *mongo.Database) *PlayerRepository {
 func (r *PlayerRepository) Create(ctx context.Context, player *models.Player) error {
 	player.CreatedAt = time.Now()
 	player.UpdatedAt = time.Now()
-	
+
 	result, err := r.collection.InsertOne(ctx, player)
 	if err != nil {
 		return fmt.Errorf("failed to create player: %w", err)
 	}
-	
+
 	// Set the ID from the result
 	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
 		player.ID = oid
 	}
-	
+
 	return nil
 }
 
 // FindByRiotID finds a player by their Riot ID (gameName + tagLine + server)
 func (r *PlayerRepository) FindByRiotID(ctx context.Context, gameName, tagLine, server string) (*models.Player, error) {
 	var player models.Player
-	
+
 	filter := bson.M{
 		"gameName": gameName,
 		"tagLine":  tagLine,
 		"server":   server,
 	}
-	
+
 	err := r.collection.FindOne(ctx, filter).Decode(&player)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -73,14 +73,14 @@ func (r *PlayerRepository) FindByRiotID(ctx context.Context, gameName, tagLine, 
 		}
 		return nil, fmt.Errorf("failed to find player: %w", err)
 	}
-	
+
 	return &player, nil
 }
 
 // FindByPUUID finds a player by their PUUID
 func (r *PlayerRepository) FindByPUUID(ctx context.Context, puuid string) (*models.Player, error) {
 	var player models.Player
-	
+
 	err := r.collection.FindOne(ctx, bson.M{"puuid": puuid}).Decode(&player)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -88,20 +88,20 @@ func (r *PlayerRepository) FindByPUUID(ctx context.Context, puuid string) (*mode
 		}
 		return nil, fmt.Errorf("failed to find player by PUUID: %w", err)
 	}
-	
+
 	return &player, nil
 }
 
 // Update updates an existing player
 func (r *PlayerRepository) Update(ctx context.Context, player *models.Player) error {
 	player.UpdatedAt = time.Now()
-	
+
 	filter := bson.M{"_id": player.ID}
 	_, err := r.collection.ReplaceOne(ctx, filter, player)
 	if err != nil {
 		return fmt.Errorf("failed to update player: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -112,7 +112,7 @@ func (r *PlayerRepository) FindAll(ctx context.Context) ([]*models.Player, error
 		return nil, fmt.Errorf("failed to find players: %w", err)
 	}
 	defer cursor.Close(ctx)
-	
+
 	var players []*models.Player
 	for cursor.Next(ctx) {
 		var player models.Player
@@ -121,11 +121,11 @@ func (r *PlayerRepository) FindAll(ctx context.Context) ([]*models.Player, error
 		}
 		players = append(players, &player)
 	}
-	
+
 	if err := cursor.Err(); err != nil {
 		return nil, fmt.Errorf("cursor error: %w", err)
 	}
-	
+
 	return players, nil
 }
 
@@ -136,10 +136,10 @@ func (r *PlayerRepository) FindAllWithPagination(ctx context.Context, page, limi
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count players: %w", err)
 	}
-	
+
 	// Calculate skip
 	skip := (page - 1) * limit
-	
+
 	// Find with pagination
 	opts := options.Find().SetSkip(int64(skip)).SetLimit(int64(limit)).SetSort(bson.D{{Key: "createdAt", Value: -1}})
 	cursor, err := r.collection.Find(ctx, bson.M{}, opts)
@@ -147,7 +147,7 @@ func (r *PlayerRepository) FindAllWithPagination(ctx context.Context, page, limi
 		return nil, 0, fmt.Errorf("failed to find players: %w", err)
 	}
 	defer cursor.Close(ctx)
-	
+
 	var players []*models.Player
 	for cursor.Next(ctx) {
 		var player models.Player
@@ -156,7 +156,7 @@ func (r *PlayerRepository) FindAllWithPagination(ctx context.Context, page, limi
 		}
 		players = append(players, &player)
 	}
-	
+
 	return players, total, nil
 }
 
@@ -166,7 +166,7 @@ func (r *PlayerRepository) Delete(ctx context.Context, id primitive.ObjectID) er
 	if err != nil {
 		return fmt.Errorf("failed to delete player: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -177,12 +177,12 @@ func (r *PlayerRepository) DeleteByRiotID(ctx context.Context, gameName, tagLine
 		"tagLine":  tagLine,
 		"server":   server,
 	}
-	
+
 	_, err := r.collection.DeleteOne(ctx, filter)
 	if err != nil {
 		return fmt.Errorf("failed to delete player: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -193,12 +193,12 @@ func (r *PlayerRepository) Exists(ctx context.Context, gameName, tagLine, server
 		"tagLine":  tagLine,
 		"server":   server,
 	}
-	
+
 	count, err := r.collection.CountDocuments(ctx, filter)
 	if err != nil {
 		return false, fmt.Errorf("failed to check player existence: %w", err)
 	}
-	
+
 	return count > 0, nil
 }
 
@@ -209,7 +209,7 @@ func (r *PlayerRepository) FindByServer(ctx context.Context, server string) ([]*
 		return nil, fmt.Errorf("failed to find players by server: %w", err)
 	}
 	defer cursor.Close(ctx)
-	
+
 	var players []*models.Player
 	for cursor.Next(ctx) {
 		var player models.Player
@@ -218,6 +218,6 @@ func (r *PlayerRepository) FindByServer(ctx context.Context, server string) ([]*
 		}
 		players = append(players, &player)
 	}
-	
+
 	return players, nil
 }
