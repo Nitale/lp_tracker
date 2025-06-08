@@ -175,6 +175,13 @@ func (h *CommandHandler) handleListPlayersAsync(s *discordgo.Session, i *discord
 	h.workerPool <- struct{}{}
 	defer func() { <-h.workerPool }()
 
+	// Statistics
+	start := time.Now()
+	h.updateStats(1, 0)
+	defer func() {
+		h.updateStats(-1, time.Since(start))
+	}()
+
 	err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
@@ -275,9 +282,11 @@ func (h *CommandHandler) updateStats(delta int64, duration time.Duration) {
 	h.stats.mu.Lock()
 	defer h.stats.mu.Unlock()
 
-	h.stats.totalCommands++
 	if delta > 0 {
-		h.stats.activeCommands += delta
+		h.stats.totalCommands++
+		h.stats.activeCommands++
+	} else {
+		h.stats.activeCommands--
 	}
 
 	if duration > 0 {
