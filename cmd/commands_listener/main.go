@@ -22,17 +22,18 @@ const (
 )
 
 func main() {
-	// Load .env file
-	err := godotenv.Load()
-	if err != nil {
-		log.Printf("Warning: Error loading .env file: %v", err)
+	if os.Getenv("DOCKER_ENV") != "true" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Printf("Warning: Error loading .env file: %v", err)
+		}
 	}
 
 	// Validate required environment variables
 	requiredEnvs := map[string]string{
 		"DISCORD_TOKEN":  os.Getenv("DISCORD_TOKEN"),
 		"RIOT_API_KEY":   os.Getenv("RIOT_API_KEY"),
-		"MONGO_URI":      os.Getenv("MONGO_URI"),
+		"MONGO_URI":      os.Getenv("MONGO_LOCAL_URI"),
 		"MONGO_DATABASE": os.Getenv("MONGO_DATABASE"),
 	}
 	fmt.Println(requiredEnvs)

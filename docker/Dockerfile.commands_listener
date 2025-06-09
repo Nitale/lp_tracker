@@ -1,31 +1,33 @@
-# Use official Go image
-FROM golang:1.21-alpine AS builder
+FROM golang:alpine AS builder
 
-# Set working directory
+ARG TARGETARCH
+ARG TARGETPLATFORM
+
+RUN apk add --no-cache git
+
 WORKDIR /app
 
-# Copy go mod files
 COPY go.mod go.sum ./
 
-# Download dependencies
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod tidy && \
+    go mod download
 
-# Copy source code and go files
 COPY . .
 
-# Build the application
-RUN go build -o discord-bot .discord-bot.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH \
+    go build -ldflags="-w -s" \
+    -o commands_listener ./cmd/commands_listener/main.go
 
-# Use minimal alpine image for runtime
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /root/
 
-# Copy the binary from builder
-COPY --from=builder /app/discord-bot .
+COPY --from=builder /app/commands_listener .
 
-# Run the binary
-CMD ["./discord-bot"]
+LABEL org.opencontainers.image.description="lp_tracker Discord bot commands_listener"
+LABEL org.opencontainers.image.source="https://github.com/Nitale/lp_tracker"
+
+CMD ["./commands_listener"]

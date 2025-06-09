@@ -34,7 +34,7 @@ func NewCommandHandler(c *container.Container) *CommandHandler {
 	return &CommandHandler{
 		container:     c,
 		playerService: c.GetPlayerService(),
-		// worker pool limit to 10 to avoid overwhelming riot api
+		// worker pool limit to 2 to avoid overwhelming riot api (since poller which also poll Riot API runs in parallel)
 		workerPool: make(chan struct{}, 2),
 		stats:      &CommandStats{},
 	}
@@ -238,7 +238,7 @@ func (h *CommandHandler) sendAppPlayerSuccess(s *discordgo.Session, i *discordgo
 		rankInfo = fmt.Sprintf("🏆 **%s %s** • %d LP", player.Tier, player.Rank, player.LeaguePoints)
 	}
 
-	response := fmt.Sprintf("✅ Successfully added **%s#%s** (%s)\n📊 **Level:** %d\n%s\n📈 **W/L:** %d/%d",
+	response := fmt.Sprintf("✅ Successfully added **%s#%s** (%s)\n📊 **Level:** %d\n%s",
 		player.GameName,
 		player.TagLine,
 		strings.ToUpper(player.Server),
